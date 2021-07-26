@@ -1,0 +1,234 @@
+import logging,os #logging used to debug
+import mysql.connector #mysql used to connect to the database
+conn=mysql.connector.connect(host="localhost",user="root",passwd="kmg@242424")
+c=conn.cursor()
+logging.basicConfig(filename="bank.log",format='%(asctime)s %(message)s',filemode='a')
+logger=logging.getLogger()
+logger.setLevel(logging.DEBUG)
+if __name__=='__main__':
+    c.execute("select max(id) from `kmbank`.`accdetails`;") #c.execute("query") method used to handle database queries
+    for i in c:     #from line 12 to line 29,is to grab the latest information from database 
+        if i[0] is not None:
+            help_var1=i[0]+1  #the greatest id+1 is stored in help_var1
+        else:
+            help_var1=1
+    c.execute("select max(accnum) from `kmbank`.`accdetails`;")
+    for i in c:
+        if i[0] is not None:
+            acnum=int(i[0]) #the latest account number is stored in accnum
+        else:
+            acnum=99990
+    c.execute("select max(pin) from `kmbank`.`accdetails`;")
+    for i in c:
+        if i[0] is not None:
+            password=int(i[0]) #the latest pin is stored in password
+        else:
+            password=8120
+
+    print("\t\t\t***welcome to kame bank***")
+    while(True):    
+        print("\n")
+        print("\tMAIN MENU\n")
+        print("1.create a new account.\n2.open an existing account.\n3.delete an existing account.\n4.list of all accounts.\n5.transactions.\n6.change pin.\n7.exit.\n")
+        ch=int(input("\tenter your choice...!\n"))
+        def create_account():   #this method used to create an account
+            global acnum,password,help_var1
+            os.system("cls")
+            acnum+=1
+            password+=1
+            for new_acc in range(help_var1,help_var1+1):
+                customer_name=input("enter your name to create account.\n")
+                s="INSERT INTO `kmbank`.`accdetails` (`id`, `name`, `accnum`, `pin`, `amount`) VALUES (%s,%s,%s,%s,%s)"
+                val=(help_var1,customer_name, acnum,str(password),0)
+                c.execute(s,val)
+                conn.commit()
+                c.execute("select name from kmbank.accdetails where id ="+str(help_var1))
+                for i in c:
+                    print("name:",i[0])
+                c.execute("select accnum from kmbank.accdetails where id="+str(help_var1))
+                for i in c:
+                    print("account number:",i[0])
+                c.execute("select pin from kmbank.accdetails where id="+str(help_var1))
+                for i in c:
+                    print("pin:",i[0])
+    
+                logger.debug("{0} account created.".format(customer_name))
+                help_var1+=1
+            print("account created successfully...")
+        def open_account(): #this method is used to open and make changes on account
+            global acnum,password,help_var1
+            help1=0
+            os.system("cls")
+            an=int(input("enter your account number\n"))
+            c.execute("select id from kmbank.accdetails where accnum="+str(an))
+            for i in c:
+                id1=i[0]
+                help1+=1
+                p=(input("enter your pin\n"))
+                c.execute("select pin from kmbank.accdetails where id="+str(id1))
+                for i in c:
+                    if(i[0]==p):
+                        c.execute("select name from kmbank.accdetails where id="+str(id1))
+                        for i in c:
+                            print("your name:",i[0])
+                            name=i[0]
+                            logger.debug("{0} account opened.".format(name))
+                            while(True):
+                                print("1.deposit\n2.withdraw.\n3.balance enquiry\n4.exit.\n")
+                                ch=int(input("\tenter your choice...\n"))
+                                if ch==1:
+                                    amount=int(input("enter amount to deposit\n"))
+                                    c.execute("select amount from kmbank.accdetails where id="+str(id1))
+                                    for i in c:
+                                        dbamount=int(i[0])
+                                        dbamount=dbamount+amount
+                                    update_query="update kmbank.accdetails set amount=%s where id=%s"
+                                    update_val=(dbamount,id1)
+                                    c.execute(update_query,update_val)
+                                    conn.commit()
+                                    logger.info("{0} rupees deposited in".format(amount))
+                                    logger.info("{0} account".format(name))
+                                    print("amount deposited")
+                                elif ch==2:
+                                    amount=int(input("enter amount to withdraw\n"))
+                                    c.execute("select amount from kmbank.accdetails where id="+str(id1))
+                                    for i in c:
+                                        dbamount=int(i[0])
+                                        if(dbamount<amount):
+                                            print("insuffient amount...")
+                                        else:
+                                            dbamount=dbamount-amount
+                                            update_query="update kmbank.accdetails set amount=%s where id=%s"
+                                            update_val=(dbamount,id1)
+                                            c.execute(update_query,update_val)
+                                            conn.commit()
+                                            print("you have taken",amount,"rupees from your account")
+                                            logger.info("{0} rupees withdraw from".format(amount))
+                                            logger.info("{0} account".format(name))
+                                elif ch==3:
+                                    c.execute("select amount from kmbank.accdetails where id="+str(id1))
+                                    for i in c:
+                                        print("balance in your account is:",i[0])
+                                elif ch==4:
+                                    break
+                    else:
+                        print("incorrect pin")
+            if(help1==0):
+                print("account not found...")
+        def delete_account(): #this method is used to delete an existing or unwanted account
+            help1=0
+            os.system("cls")
+            an=int(input("enter your account number to delete\n"))
+            c.execute("select id from kmbank.accdetails where accnum="+str(an))
+            for i in c:
+                id1=i[0]
+                c.execute("select name from kmbank.accdetails where id="+str(id1))
+                for i in c:
+                    print(i[0],"account deleted\n")
+                    logger.info("{0} account deleted".format(i[0]))
+                c.execute("delete from kmbank.accdetails where id="+str(id1))
+                conn.commit()
+                help1+=1
+            if(help1==0):
+                print("account not found to delete...")
+        def show_list():    #this method is used to show the current existing accounts
+            os.system("cls")
+            c.execute("select max(id) from `kmbank`.`accdetails`")
+            for i in c:
+                if i[0] is None:
+                    max_id=0
+                    print("no accounts to show...")
+                else:
+                    max_id=i[0]
+                    print("list of all accounts...")
+            c.execute("select name from kmbank.accdetails")
+            for i in range(0,max_id+1):
+                for j in c:
+                    print("*",j[i],"account")
+        def transaction():  #this method is used to make a transaction i.e(can send money from one account to another account
+            help1=0
+            help2=0
+            os.system("cls")
+            an=int(input("enter your account number\n"))
+            c.execute("select id from kmbank.accdetails where accnum="+str(an))
+            for i in c:
+                id1=i[0]
+                help1+=1
+                p=input("enter your pin\n")
+                c.execute("select pin from kmbank.accdetails where id="+str(id1))
+                for i in c:
+                    if(i[0]==p):
+                        c.execute("select amount from kmbank.accdetails where id="+str(id1))
+                        for i in c:
+                            temp_amount1=int(i[0])
+                            trans_amount=int(input("enter amount to transfer\n"))
+                            if(trans_amount>temp_amount1):
+                                print("insufficient balance...\n")
+                                help2+=1
+                                break
+                            else:
+                                temp_amount1=temp_amount1-trans_amount
+                            c.execute("select name from kmbank.accdetails where id="+str(id1))
+                            for i in c:
+                                from_name=i[0]
+                            t_acnum=int(input("enter account number to transfer money\n"))
+                            c.execute("select id from kmbank.accdetails where accnum="+str(t_acnum))
+                            for i in c:
+                                id2=i[0]
+                                help2+=1
+                                c.execute("select amount from kmbank.accdetails where id="+str(id2))
+                                for i in c:
+                                    temp_amount2=int(i[0])
+                                    temp_amount2=temp_amount2+trans_amount
+                                    update_query="update kmbank.accdetails set amount=%s where id=%s"
+                                    update_val=(temp_amount1,id1)
+                                    c.execute(update_query,update_val)
+                                    conn.commit()
+                                    update_query="update kmbank.accdetails set amount=%s where id=%s"
+                                    update_val=(temp_amount2,id2)
+                                    c.execute(update_query,update_val)
+                                    conn.commit()
+                                    c.execute("select name from kmbank.accdetails where id="+str(id2))
+                                    for i in  c:
+                                        print("transferred",trans_amount,"rupees from",from_name,"account to",i[0]," account")
+                                        logger.info("{0} rupees transferred from {1} account to{2} account".format(trans_amount,from_name,i[0]))
+                    else:
+                        print("pin is incorrect")            
+            if(help1==0 or help2==0):
+                print("account not found...")
+        def change_pin(): #this method is used to change the pin of existing account
+            help1=0
+            os.system("cls")
+            an=int(input("enter your account number to change pin\n"))
+            c.execute("select id from kmbank.accdetails where accnum="+str(an))
+            for i in c:
+                id1=i[0]
+                help1+=1
+                pin1=input("enter new pin\n")
+                pin2=input("enter pin again...\n")
+                if(pin1==pin2):
+                    update_query="update kmbank.accdetails set pin=%s where id=%s"
+                    update_val=(pin1,id1)
+                    c.execute(update_query,update_val)
+                    conn.commit()
+                    print("pin changed successfully...")
+                else:
+                    print("pin conformation has failed...") 
+            if(help1==0):
+                print("account number not found...")
+        if(ch==1):
+            create_account()
+        elif(ch==2):
+            open_account()
+        elif(ch==3):
+            delete_account()
+        elif(ch==4):
+            show_list()
+        elif(ch==5):
+            transaction()
+        elif(ch==6):
+            change_pin()
+        elif(ch==7):
+            exit()
+        else:
+            print("invalid choice...!")
